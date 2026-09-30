@@ -1,0 +1,21 @@
+# Extras beyond requirements.txt. None of these are needed to run the app.
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+# train_model.py -- regenerates model.pkl, scaler.pkl, positions_dataset.csv
+pandas==3.0.6
+
+# make_figures.py -- regenerates figures/
+matplotlib==3.11.2
+
+# build_report.py -- renders REPORT.md to report.html
+markdown==3.11
+
+# build_pieces.py -- one-off: traced the Cburnett PNGs into SVG paths.
+# pieces.py is committed, so you never need to run this.
+pillow==12.3.0
+scikit-image==0.26.0
+
+# verify.py / verify_anim.py -- headless browser tests.
+# After installing, run: playwright install chromium
+playwright==1.63.0

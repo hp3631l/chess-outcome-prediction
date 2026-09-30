@@ -9,10 +9,15 @@ server.log
 train.log
 nohup.out
 
-# Generated / large artifacts (regenerate via train_model.py + build_report.py)
-# Keep model.pkl + scaler.pkl so the app runs without retraining.
-model.pkl
-scaler.pkl
+# Generated artifacts
+#
+# model.pkl + scaler.pkl ARE committed on purpose. app.py loads them at
+# startup, so ignoring them means a fresh clone cannot boot without first
+# running train_model.py (~135 s, plus regenerating a 26k-position dataset).
+# At 3.4 MB they cost nothing and make the repo run-and-playable.
+#
+# Everything below is genuinely regenerable and is left out to keep the tree
+# readable: build_report.py and make_figures.py reproduce all of it.
 positions_dataset.csv
 report.html
 report.pdf
