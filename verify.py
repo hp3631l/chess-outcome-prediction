@@ -15,10 +15,12 @@ def play(pg, frm, to):
 def read(pg):
     return pg.evaluate(
         """() => ({
-            blk: document.getElementById('v-black').textContent,
-            drw: document.getElementById('v-draw').textContent,
-            wht: document.getElementById('v-white').textContent,
-            lead: document.querySelector('.vrow.lead')?.dataset.k,
+            blk: document.getElementById('v-say').textContent,
+            drw: '',
+            wht: '',
+            lead: document.getElementById('v-lead').textContent,
+            leadPct: document.getElementById('v-pct').textContent,
+            rest: document.getElementById('v-rest').textContent,
             turn: document.getElementById('turntxt').textContent,
             turnCls: document.getElementById('turn').className,
             mat: document.getElementById('evalcp').textContent,

@@ -129,77 +129,123 @@ def game_status(b: chess.Board):
 
 
 CSS = r"""
+/* ============================================================
+   A document, not a dashboard.
+
+   Warm monochrome: bone paper, ink type. There is deliberately NO
+   accent colour for interface chrome -- buttons, selection, focus and
+   last-move all resolve to ink. Colour appears only where it carries
+   data (the three outcome probabilities) and there it is desaturated
+   to muted pastels so the page stays calm.
+
+   One radius scale (4px structure / 6px interactive), one hairline
+   (--line), used as structure rather than decoration.
+   ============================================================ */
 *,*::before,*::after{box-sizing:border-box}
 :root{
-  --bg:#0d0e11; --ink:#eceef2; --ink-2:#8b93a3; --ink-3:#565e6d;
-  --rule:rgba(255,255,255,.085); --rule-2:rgba(255,255,255,.15);
-  --accent:#d9a441;
-  --blk:#e2687f; --drw:#8b95a8; --wht:#4ad295;
-  --sq-light:#e6d3ae; --sq-dark:#a67c56;
+  --paper:#F7F6F3;
+  --surface:#FFFFFF;
+  --line:#EAEAEA;
+  --line-2:#DEDDD9;
+  --ink:#111111;
+  --body:#2F3437;
+  --muted:#63625E;
+  /* --faint carries REAL TEXT (coords, kbd glyphs, table heads, the empty
+     state) at 0.6-0.79rem, so it has to clear 4.5:1, not 3:1. The earlier
+     #8A8883 sat at 3.28:1 and failed AA on four separate elements. */
+  --faint:#6F6D69;
+  /* The board is inverted against the page, and deliberately LOW contrast.
+     At #3A3630 it was still the loudest thing on screen and black pieces
+     dissolved into their own squares. Held close to the paper, the pieces'
+     own outlines carry the figure and the grid recedes to texture. This is
+     also what lets every board affordance below use ONE ink colour instead
+     of flipping per square colour. */
+  --sq-light:#EBE6DA;
+  --sq-dark:#B4AC9C;
+  --piece-w:#FCFBF8;      --piece-w-line:#141310;
+  --piece-b:#17150F;      --piece-b-line:#FCFBF8;
+  /* data only -- never chrome */
+  --win-w:#346538;
+  --win-b:#9F2F2D;
+  --seg-w:#346538;
+  --seg-d:#B4B2AC;
+  --seg-b:#9F2F2D;
   --ease:cubic-bezier(.22,1,.36,1);
   --sq:66px;
+  --r:6px;
   --sans:'Geist',ui-sans-serif,system-ui,'Segoe UI',sans-serif;
   --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
-  color-scheme:dark;
+  color-scheme:light;
 }
 html,body{height:100%}
 body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font-family:var(--sans); font-size:15px; line-height:1.55;
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  margin:0;background:var(--paper);color:var(--body);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
   touch-action:manipulation;
 }
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
     clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-.wrap{max-width:1120px;margin:0 auto;padding:0 28px 72px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 32px 88px}
 
-/* ---------- masthead: quiet, no stat pills ---------- */
+/* ---------- masthead: type only, no mark ---------- */
 .masthead{display:flex;align-items:baseline;justify-content:space-between;
-          gap:20px;padding:30px 0 20px;flex-wrap:wrap}
-.title{display:flex;align-items:center;gap:12px;min-width:0}
-.title svg{width:26px;height:26px;flex:none}
-.title h1{margin:0;font-size:1.06rem;font-weight:500;letter-spacing:-.014em}
-.about{position:relative}
+          gap:24px;padding:38px 0 30px;flex-wrap:wrap}
+h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.012em}
 .about summary{
-  list-style:none;cursor:pointer;font-size:.8rem;color:var(--ink-2);
-  padding:5px 2px;border-bottom:1px solid var(--rule);
+  list-style:none;cursor:pointer;font-size:.8rem;color:var(--muted);
+  padding-bottom:3px;border-bottom:1px solid var(--line-2);
   transition:color 200ms cubic-bezier(.4,0,.2,1),border-color 200ms cubic-bezier(.4,0,.2,1);
 }
 .about summary::-webkit-details-marker{display:none}
-.about summary:hover{color:var(--ink);border-color:var(--rule-2)}
-.about summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.about summary:hover{color:var(--ink);border-color:var(--ink)}
+.about summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .about[open] summary{border-color:transparent}
 .about .body{
-  position:absolute;right:0;top:calc(100% + 10px);z-index:20;width:308px;
-  padding:16px 17px;background:#14161b;border:1px solid var(--rule-2);
-  border-radius:10px;box-shadow:0 20px 50px -20px rgba(0,0,0,.9);
-  font-size:.79rem;line-height:1.65;color:var(--ink-2);
+  position:absolute;right:0;top:calc(100% + 10px);z-index:20;width:312px;
+  padding:18px 19px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);
+  box-shadow:0 1px 2px rgba(17,17,17,.04),0 12px 28px -18px rgba(17,17,17,.22);
+  font-size:.79rem;line-height:1.65;color:var(--muted);
 }
 .about .body p{margin:0 0 10px}
 .about .body p:last-child{margin:0}
-.about dl{margin:0 0 11px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
-.about dt{color:var(--ink-3)}
-.about dd{margin:0;text-align:right;color:var(--ink)}
-.credit{margin:0;color:var(--ink-3);font-size:.72rem;line-height:1.55}
+.about dl{margin:0 0 12px;display:grid;grid-template-columns:auto 1fr;gap:5px 16px}
+.about dt{color:var(--faint)}
+.about dd{margin:0;text-align:right;color:var(--ink);font-family:var(--mono)}
+.credit{margin:0;color:var(--faint);font-size:.72rem;line-height:1.55}
 
-/* ---------- composition: the board alone on the left, all of its reading in
-              one narrow analysis column on the right. The verdict must NOT
-              span the board width -- label/value pairs stretched across
-              790px read as unrelated. ---------- */
-.stage{display:grid;grid-template-columns:minmax(0,auto) 302px;gap:40px;
+/* ---------- composition ---------- */
+.stage{display:grid;grid-template-columns:minmax(0,auto) 296px;gap:56px;
        align-items:start;justify-content:center}
-.left{display:flex;flex-direction:column;gap:9px}
-.rail{display:flex;flex-direction:column;gap:20px;min-height:100%}
+.left{display:flex;flex-direction:column;gap:10px}
+.rail{display:flex;flex-direction:column;gap:30px;min-height:100%}
 
 /* ---------- board ---------- */
-.boardwrap{display:flex;flex-direction:column;gap:7px}
-.frame{padding:7px;border:1px solid var(--rule);border-radius:4px;background:#0a0b0e}
+.boardwrap{display:flex;flex-direction:column;gap:8px}
+.frame{padding:7px;border:1px solid var(--line);border-radius:var(--r);
+       background:var(--surface)}
 .board{position:relative;display:grid;
        grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));
        user-select:none;-webkit-user-select:none;touch-action:manipulation;
-       border-radius:2px;overflow:hidden}
+       border-radius:3px;overflow:hidden}
+.sq{position:relative;display:grid;place-items:center;padding:0;margin:0;border:0;
+    background:var(--sq-light);cursor:pointer;line-height:0;
+    -webkit-tap-highlight-color:transparent}
+.sq.d{background:var(--sq-dark)}
+.sq:focus{outline:none}
+.sq:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;z-index:6}
+/* Last move is a memory cue, not an action target, so it sits below 3:1 by
+   design -- but it must still be perceptible, hence two alphas. */
+.sq.last::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:rgba(17,17,17,.13)}
+.sq.d.last::after{background:rgba(17,17,17,.17)}
+.sq.sel{box-shadow:inset 0 0 0 3px var(--ink)}
+.sq.king::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle,rgba(159,47,45,.9) 6%,rgba(159,47,45,.24) 40%,transparent 68%)}
+
 /* FLIP -- the board turns a half-revolution in its own plane. No depth, no
    perspective, no backface: just a rotation.
 
@@ -239,21 +285,7 @@ body{
    same style step as the layout rewrite. Without this the pieces would
    tween from -180deg to 0 and visibly spin a whole second time. */
 .boardwrap.snapping .board,.boardwrap.snapping .pc{transition:none}
-/* Coordinate labels live outside .board, so they never turn with it. Fade
-   them across the swap rather than letting them reverse while still legible. */
-.coords,.ranks{transition:opacity 300ms var(--ease)}
-.boardwrap.turning .coords,.boardwrap.turning .ranks{opacity:0}
-.sq{position:relative;display:grid;place-items:center;padding:0;margin:0;border:0;
-    background:var(--sq-light);cursor:pointer;line-height:0;
-    -webkit-tap-highlight-color:transparent}
-.sq.d{background:var(--sq-dark)}
-.sq:focus{outline:none}
-.sq:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;z-index:6}
-.sq.last::after{content:'';position:absolute;inset:0;
-    background:rgba(217,164,65,.22);pointer-events:none}
-.sq.sel{box-shadow:inset 0 0 0 4px var(--accent)}
-.sq.king::after{content:'';position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(circle,rgba(226,104,127,.95) 7%,rgba(226,104,127,.4) 42%,transparent 72%)}
+
 /* FLIP: the piece is rendered at its NEW square, then briefly translated back
    to where it came from and released. transform-only, so the whole move runs
    on the compositor and never triggers layout. */
@@ -264,128 +296,128 @@ body{
 .pc.dying{opacity:0;transform:scale(.55);
           transition:opacity 250ms var(--ease),transform 250ms var(--ease)}
 .pc svg{width:100%;height:100%;display:block;overflow:visible}
-/* mid-flight lift — animated on the inner svg so it cannot fight the
+/* mid-flight lift -- animated on the inner svg so it cannot fight the
    translate on .pc above, which owns that transform property */
 .pc.lift svg{animation:lift 300ms var(--ease)}
 @keyframes lift{0%{transform:scale(1)}34%{transform:scale(1.1)}100%{transform:scale(1)}}
-.pc.w path{fill:#fbfaf7;stroke:#171a21;stroke-width:4.2;
+/* Pieces are read by their OUTLINE, not their fill -- a white piece on a
+   light square is only 1.20:1 by fill, but the ink stroke is 17.5:1, so the
+   figure still holds. That is why the board can sit low-contrast. */
+.pc.w path{fill:var(--piece-w);stroke:var(--piece-w-line);stroke-width:4.2;
            stroke-linejoin:round;paint-order:stroke fill}
-.pc.b path{fill:#191d26;stroke:#fbfaf7;stroke-width:4.2;
+.pc.b path{fill:var(--piece-b);stroke:var(--piece-b-line);stroke-width:4.2;
            stroke-linejoin:round;paint-order:stroke fill}
+/* Legal-target marks carry no hue, and because both square colours sit close
+   to the paper one ink reads across the whole board -- the per-square
+   overrides are gone. Alpha is 0.60, not the 0.22 it looks like it could be:
+   these marks are the ONLY cue that a square is capturable, so they are
+   meaningful content and need 3:1. At 0.30 the capture ring measured 1.81:1
+   on the dark square -- effectively invisible. */
 .hint{position:absolute;left:50%;top:50%;width:26%;height:26%;z-index:3;
       transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
-      background:rgba(16,18,22,.55)}
+      background:rgba(17,17,17,.60)}
 .hint.cap{width:84%;height:84%;background:none;box-sizing:border-box;
-          border:5px solid rgba(16,18,22,.48)}
+          border:3px solid rgba(17,17,17,.60)}
 
-.coords{display:flex;font-family:var(--mono);font-size:.6rem;color:var(--ink-3);
+.coords{display:flex;font-family:var(--mono);font-size:.6rem;color:var(--faint);
         font-variant-numeric:tabular-nums}
-.coords.files{width:calc(8*var(--sq));margin-left:26px}
+.coords.files{width:calc(8*var(--sq));margin-left:24px}
 .coords.files span{width:var(--sq);text-align:center}
 .ranks{display:flex;flex-direction:column;height:calc(8*var(--sq));width:18px;flex:none}
 .ranks span{display:grid;place-items:center;height:var(--sq)}
-.boardgrid{display:flex;gap:8px}
+.boardgrid{display:flex;gap:9px}
+.hintline{margin:0;text-align:center;font-size:.75rem;color:var(--faint)}
 
-/* ---------- verdict: a composition, not three metrics ---------- */
-.verdict{border-top:1px solid var(--rule);padding-top:18px}
-.stack{position:relative;height:7px;border-radius:99px;overflow:hidden;
-       background:rgba(255,255,255,.05)}
+/* ---------- the verdict: one number, not three rows ---------- */
+.verdict{display:flex;flex-direction:column}
+.verdict .k{margin:0 0 7px;font-size:.8rem;color:var(--muted);line-height:1}
+/* The leading figure IS the interface. Hierarchy comes from weight and
+   colour, not from a list of three equal rows each trying to be read. */
+.verdict .lead-v{margin:0 0 15px;font-size:2.9rem;line-height:1;color:var(--ink);
+                 letter-spacing:-.038em;font-weight:400}
+.stack{position:relative;height:5px;border-radius:2px;overflow:hidden;
+       background:rgba(17,17,17,.07)}
 .seg{position:absolute;left:0;top:0;bottom:0;width:100%;
      transform-origin:left center;transition:transform 640ms var(--ease)}
-.seg-b{background:var(--blk)} .seg-d{background:var(--drw)} .seg-w{background:var(--wht)}
+.seg-b{background:var(--seg-b)} .seg-d{background:var(--seg-d)} .seg-w{background:var(--seg-w)}
+.rest{margin:0;font-size:.76rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.rest b{font-weight:400;color:var(--muted)}
+.verdict .rest{margin-top:11px}
+.meta{margin-top:3px}
+.meta .sep{color:var(--line-2)}
+.meta .up{color:var(--win-w)} .meta .dn{color:var(--win-b)}
 
-.vlist{margin-top:15px}
-/* Rows are centre-aligned, not baseline: promoting the leading figure with a
-   baseline-aligned label left a large dead band under it. */
-.vrow{display:flex;align-items:center;gap:9px;padding:5px 0;min-height:30px;
-      color:var(--ink-2);transition:color 400ms var(--ease)}
-.vrow .swatch{width:8px;height:8px;flex:none;border-radius:2px;background:var(--drw);
-              transition:background 400ms var(--ease),transform 400ms var(--ease)}
-.vrow .who{font-size:.85rem}
-.vrow .pct{margin-left:auto;font-size:.85rem;color:var(--ink-2);
-           transition:color 400ms var(--ease),font-size 400ms var(--ease)}
-/* the leading outcome is promoted: brighter, larger, own accent on the swatch */
-.vrow.lead{color:var(--ink)}
-.vrow.lead .who{font-weight:500;font-size:.92rem}
-.vrow.lead .pct{font-size:1.22rem;color:var(--ink);letter-spacing:-.025em}
-.vrow.lead .swatch{transform:scale(1.45)}
-
-.matline{display:flex;align-items:baseline;justify-content:space-between;
-         gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
-.matline .k{font-size:.86rem;color:var(--ink-2)}
-.matline .v{font-size:1.02rem;color:var(--ink)}
-.matline .v.up{color:var(--wht)} .matline .v.dn{color:var(--blk)}
-
-/* ---------- turn strip ---------- */
-.turnline{display:flex;align-items:center;gap:9px;font-size:.9rem;color:var(--ink-2);
-         min-height:22px}
-.turnline .dot{width:8px;height:8px;flex:none;border-radius:50%;background:var(--ink-3);
-               box-shadow:0 0 0 3px rgba(255,255,255,.05);
-               transition:background 400ms var(--ease)}
-.turnline.w .dot{background:#fbfaf7} .turnline.b .dot{background:#191d26;
-                 box-shadow:0 0 0 1px var(--rule-2),0 0 0 4px rgba(255,255,255,.05)}
-.turnline.res-w{color:var(--wht)} .turnline.res-w .dot{background:var(--wht)}
-.turnline.res-b{color:var(--blk)} .turnline.res-b .dot{background:var(--blk)}
-.turnline.res-d{color:var(--drw)} .turnline.res-d .dot{background:var(--drw)}
+/* ---------- turn: words carry it, no status dot ---------- */
+.turnline{font-size:.82rem;color:var(--muted);min-height:22px}
+.turnline b{font-weight:500;color:var(--ink)}
+.turnline.res-w b{color:var(--win-w)}
+.turnline.res-b b{color:var(--win-b)}
+.turnline.res-d b{color:var(--ink)}
 
 /* ---------- score sheet ---------- */
 .sheetwrap{display:flex;flex-direction:column;min-height:0;flex:1}
-.sheetwrap h2{margin:0 0 9px;font-size:.86rem;font-weight:500;color:var(--ink-2)}
+.sheetwrap h2{margin:0 0 10px;font-size:.72rem;font-weight:500;color:var(--faint)}
 #hist{flex:1;overflow-y:auto;overscroll-behavior:contain;min-height:64px;
-      scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+      scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
 #hist::-webkit-scrollbar{width:6px}
-#hist::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px}
+#hist::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
 .sheet{width:100%;border-collapse:collapse;font-family:var(--mono);
        font-size:.79rem;font-variant-numeric:tabular-nums}
 .sheet th,.sheet td{text-align:left;font-weight:400;padding:4px 0;
-                    border-bottom:1px solid var(--rule)}
-.sheet thead th{color:var(--ink-3);padding-bottom:6px}
-.sheet tbody th{color:var(--ink-3);width:1.9em}
+                    border-bottom:1px solid var(--line)}
+.sheet thead th{color:var(--faint);padding-bottom:6px}
+.sheet tbody th{color:var(--faint);width:1.9em}
 .sheet td:first-of-type{color:var(--ink);width:4.2em}
-.sheet td:last-child{color:var(--ink-2)}
+.sheet td:last-child{color:var(--muted)}
 .sheet tbody tr:last-child th,.sheet tbody tr:last-child td{border-bottom:0}
-.empty{color:var(--ink-3);font-size:.79rem;font-style:italic;padding:4px 0;margin:0}
-.hintline{margin:0;text-align:center;font-size:.75rem;color:var(--ink-3)}
+/* An empty state should say what to do, not apologise. */
+.empty{color:var(--faint);font-size:.79rem;padding:2px 0;margin:0}
 
-/* ---------- controls: understated ---------- */
-.ctrls{display:flex;flex-direction:column;gap:7px}
+/* ---------- controls: three peers, no primary ---------- */
+/* "New game" was the filled CTA on a page whose real interaction is the
+   board. That was a hierarchy error: making a rare, destructive action
+   loudest. All three are now the same quiet weight. */
+.ctrls{display:grid;grid-template-columns:repeat(3,1fr);
+       border:1px solid var(--line);border-radius:var(--r);
+       background:var(--surface);overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;
        -webkit-tap-highlight-color:transparent}
-.btn{padding:10px 15px;border-radius:7px;font-size:.85rem;color:var(--ink-2);
-     background:rgba(255,255,255,.045);border:1px solid var(--rule);text-align:left;
-     display:flex;align-items:center;justify-content:space-between;gap:10px;
-     transition:transform 170ms var(--ease),background 220ms cubic-bezier(.4,0,.2,1),
-                color 220ms cubic-bezier(.4,0,.2,1),border-color 220ms cubic-bezier(.4,0,.2,1)}
-.btn:hover:not([disabled]){background:rgba(255,255,255,.08);color:var(--ink);
-                          border-color:var(--rule-2)}
-.btn:active:not([disabled]){transform:scale(.985)}
-.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn .k{font-family:var(--mono);font-size:.72rem;color:var(--ink-3)}
-.btn[disabled]{opacity:.35;cursor:not-allowed}
-.btn.primary{background:var(--accent);color:#151006;border-color:transparent;
-             font-weight:550;justify-content:center}
-.btn.primary:hover{background:#e6b358;color:#151006}
-.btn.primary .k{color:rgba(21,16,6,.5)}
+.btn{padding:9px 6px 8px;border-radius:0;font-size:.78rem;color:var(--muted);
+     transition:transform 170ms var(--ease),background 200ms cubic-bezier(.4,0,.2,1),
+                color 200ms cubic-bezier(.4,0,.2,1)}
+.btn + .btn{border-left:1px solid var(--line)}
+.btn:hover:not([disabled]){background:var(--paper);color:var(--ink)}
+.btn:active:not([disabled]){transform:scale(.97)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+/* Shortcuts rendered as physical keys rather than as loose grey text. */
+.kbd{display:block;width:fit-content;margin:5px auto 0;padding:0 5px;
+     border:1px solid var(--line);border-radius:4px;background:var(--paper);
+     font-family:var(--mono);font-size:.6rem;line-height:1.55;color:var(--faint)}
+.btn[disabled]{opacity:.34;cursor:not-allowed}
+
+/* ---------- one quiet entrance, transform + opacity only ---------- */
+.enter{animation:rise 640ms var(--ease) both}
+.enter-2{animation-delay:70ms}
+.enter-3{animation-delay:140ms}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 /* ---------- responsive ---------- */
-@media (max-width:1040px){
-  :root{--sq:min(9.2vw,60px)}
-  .stage{grid-template-columns:minmax(0,1fr);gap:30px;max-width:600px;margin:0 auto}
-  .rail{padding-top:0;max-width:600px;width:100%;margin:0 auto}
-  .ctrls{flex-direction:row;flex-wrap:wrap}
-  .btn{flex:1 1 auto;min-width:120px;justify-content:center}
-  .btn .k{display:none}
-  .about .body{width:min(320px,calc(100vw - 56px))}
+@media (max-width:1020px){
+  :root{--sq:min(9.4vw,60px)}
+  .stage{grid-template-columns:minmax(0,1fr);gap:36px;max-width:600px;margin:0 auto}
+  .rail{max-width:600px;width:100%;margin:0 auto;gap:26px}
+  .about .body{width:min(320px,calc(100vw - 64px))}
 }
 @media (max-width:560px){
-  :root{--sq:min(10.4vw,52px)}
-  .wrap{padding:0 14px 48px}
-  .masthead{padding:20px 0 14px}
-  .title h1{font-size:.96rem}
-  .vrow.lead .pct{font-size:1.5rem}
+  :root{--sq:min(10.6vw,52px)}
+  .wrap{padding:0 16px 56px}
+  .masthead{padding:26px 0 20px}
+  h1{font-size:.94rem}
+  .verdict .lead-v{font-size:2.4rem}
+  .coords.files{margin-left:22px}
 }
 
-/* ---------- reduced motion / transparency ---------- */
+/* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
                        transition-duration:.01ms!important}
@@ -397,7 +429,7 @@ PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d0e11">
+<meta name="theme-color" content="#F7F6F3">
 <meta name="description" content="Two-player chess with a machine-learning win-probability estimate after every move.">
 <title>Live chess outcome prediction</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -409,8 +441,8 @@ PAGE = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
 
-  <header class="masthead">
-    <div class="title">__KNIGHT__<h1>Live chess outcome prediction</h1></div>
+  <header class="masthead enter">
+    <h1>Live chess outcome prediction</h1>
     <details class="about">
       <summary>About the model</summary>
       <div class="body">
@@ -422,7 +454,7 @@ PAGE = r"""<!DOCTYPE html>
   </header>
 
   <main class="stage">
-    <section class="left" aria-label="Chess board">
+    <section class="left enter enter-2" aria-label="Chess board">
       <div class="boardwrap">
         <div class="coords files" id="cfiles" aria-hidden="true"></div>
         <div class="boardgrid">
@@ -431,33 +463,26 @@ PAGE = r"""<!DOCTYPE html>
             <div class="board" id="board" role="grid"
                  aria-label="Chess board, two players sharing one screen"></div>
           </div>
-        </div>
-        <p class="hintline">Select a piece, then a highlighted square</p>
-      </div>
       <p class="sr" id="announce" role="status" aria-live="polite"></p>
     </section>
 
-    <aside class="rail" aria-label="Analysis">
-      <div>
-        <div class="turnline" id="turn"><span class="dot" aria-hidden="true"></span>
-          <span id="turntxt">Loading&hellip;</span></div>
-        <div class="verdict">
-          <div class="stack" aria-hidden="true">
-            <i class="seg seg-b" id="b-black"></i>
-            <i class="seg seg-d" id="b-draw"></i>
-            <i class="seg seg-w" id="b-white"></i>
-          </div>
-          <div class="vlist" id="vlist" aria-live="polite" aria-atomic="true">
-            <div class="vrow" data-k="black"><i class="swatch" aria-hidden="true"></i>
-              <span class="who">Black</span><span class="pct mono" id="v-black">&ndash;</span></div>
-            <div class="vrow" data-k="draw"><i class="swatch" aria-hidden="true"></i>
-              <span class="who">Draw</span><span class="pct mono" id="v-draw">&ndash;</span></div>
-            <div class="vrow" data-k="white"><i class="swatch" aria-hidden="true"></i>
-              <span class="who">White</span><span class="pct mono" id="v-white">&ndash;</span></div>
-          </div>
-          <div class="matline"><span class="k">Material</span>
-            <span class="v mono" id="evalcp">&ndash;</span></div>
+    <aside class="rail enter enter-3" aria-label="Analysis">
+      <div class="verdict">
+        <p class="k" id="v-lead">Draw</p>
+        <p class="lead-v mono" id="v-pct">&ndash;</p>
+        <div class="stack" aria-hidden="true">
+          <i class="seg seg-b" id="b-black"></i>
+          <i class="seg seg-d" id="b-draw"></i>
+          <i class="seg seg-w" id="b-white"></i>
         </div>
+        <p class="rest" id="v-rest"></p>
+        <p class="sr" id="v-say" aria-live="polite" aria-atomic="true"></p>
+      </div>
+
+      <div>
+        <div class="turnline" id="turn"><span id="turntxt">Loading&hellip;</span></div>
+        <p class="rest meta">Material <span class="sep" aria-hidden="true">·</span>
+          <span class="mono" id="evalcp">&ndash;</span></p>
       </div>
 
       <div class="sheetwrap">
@@ -466,9 +491,9 @@ PAGE = r"""<!DOCTYPE html>
       </div>
 
       <div class="ctrls">
-        <button class="btn primary" id="btn-new">New game</button>
-        <button class="btn" id="btn-undo" disabled>Undo<span class="k">&larr;</span></button>
-        <button class="btn" id="btn-flip">Flip board<span class="k">F</span></button>
+        <button class="btn" id="btn-new">New game<kbd class="kbd">N</kbd></button>
+        <button class="btn" id="btn-undo" disabled>Undo<kbd class="kbd">&larr;</kbd></button>
+        <button class="btn" id="btn-flip">Flip<kbd class="kbd">F</kbd></button>
       </div>
     </aside>
   </main>
@@ -583,12 +608,14 @@ function renderTurn(state){
   if (state.over){
     t.classList.add(/White wins/.test(state.status) ? "res-w"
                   : /Black wins/.test(state.status) ? "res-b" : "res-d");
-    x.textContent = state.status;
+    x.innerHTML = "<b>" + state.status + "</b>";
   } else {
     t.classList.add(state.turn);
-    x.textContent = (state.turn === "w" ? "White" : "Black") + " to move";
+    x.innerHTML = "<b>" + (state.turn === "w" ? "White" : "Black") + "</b> to move";
   }
 }
+
+const LABEL = {black:"Black", draw:"Draw", white:"White"};
 
 function setProbs(p){
   const v = {black:p.black, draw:p.draw, white:p.white};
@@ -600,23 +627,31 @@ function setProbs(p){
   el("b-draw").style.transform  = "translateX(" + (bb*100) + "%) scaleX(" + v.draw + ")";
   el("b-white").style.transform = "translateX(" + (dd*100) + "%) scaleX(" + v.white + ")";
 
-  // Promote the leading outcome instead of printing a second headline figure.
+  // ONE number, not three rows. At 98.7% draw the other two are noise, and
+  // giving them peer rows with swatches turned an answer into a form.
   let lead = "draw";
   for (const k of ROWS) if (v[k] > v[lead]) lead = k;
-  for (const k of ROWS){
-    const row = el("vlist").querySelector('[data-k="'+k+'"]');
-    row.classList.toggle("lead", k === lead);
-    row.querySelector(".swatch").style.background = "var(--"+k+")";
-    el("v-" + k).textContent = (v[k]*100).toFixed(1) + "%";
-  }
+  el("v-lead").textContent = LABEL[lead];
+  el("v-pct").textContent = (v[lead] * 100).toFixed(1) + "%";
+
+  const rest = ROWS.filter(k => k !== lead);
+  el("v-rest").innerHTML = rest.map(function(k){
+    return LABEL[k] + " <b>" + (v[k] * 100).toFixed(1) + "%</b>";
+  }).join(" &middot; ");
+
+  // The visual now omits two of the three, so give assistive tech all of
+  // them rather than leaving the live region to announce only the leader.
+  el("v-say").textContent = ROWS.map(function(k){
+    return LABEL[k] + " " + (v[k] * 100).toFixed(1) + " percent";
+  }).join(", ");
 
   const cp = p.material_cp, e = el("evalcp");
   if (typeof cp === "number" && Math.abs(cp) >= 5){
     e.textContent = (cp > 0 ? "+" : "\u2212") + (Math.abs(cp)/100).toFixed(1);
-    e.className = "v mono " + (cp > 0 ? "up" : "dn");
+    e.className = "mono " + (cp > 0 ? "up" : "dn");
   } else {
     e.textContent = "level";
-    e.className = "v mono";
+    e.className = "mono";
   }
 }
 
@@ -789,10 +824,20 @@ boardEl.addEventListener("keydown", e => {
   const c = Math.min(7, Math.max(0, Number(b.dataset.col) + d[1]));
   boardEl.children[r * 8 + c].focus();
 });
+// Arrow keys are consumed by the board's own navigation handler; every
+// other shortcut is global. The old guard returned early whenever a square
+// had focus -- which is the case right after any click -- so N/F/Z silently
+// did nothing once you had touched the board.
+const NAV_KEYS = {ArrowUp:1, ArrowDown:1, ArrowLeft:1, ArrowRight:1};
 document.addEventListener("keydown", e => {
-  if (e.target.closest(".sq")) return;          // don't hijack board navigation
-  if (e.key === "f" || e.key === "F") el("btn-flip").click();
-  if (e.key === "n" || e.key === "N") el("btn-new").click();
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (NAV_KEYS[e.key] && e.target.closest(".sq")) return;   // board nav only
+  if (e.key === "f" || e.key === "F"){ e.preventDefault(); el("btn-flip").click(); }
+  if (e.key === "n" || e.key === "N"){ e.preventDefault(); el("btn-new").click(); }
+  if (e.key === "z" || e.key === "Z" || e.key === "Backspace"){
+    e.preventDefault();
+    if (!el("btn-undo").disabled) el("btn-undo").click();
+  }
 });
 
 async function loadMeta(){
@@ -847,15 +892,11 @@ def _foot():
 
 @app.route("/")
 def index():
-    v = str(VIEWBOX)
-    knight = ('<svg viewBox="0 0 ' + v + " " + v + '" aria-hidden="true">'
-              '<path d="' + PIECES["wN"] + '" fill="#d9a441" fill-rule="evenodd" '
-              'stroke="#0d0e11" stroke-width="7" stroke-linejoin="round" '
-              'paint-order="stroke fill"/></svg>')
+    # No wordmark: a chess glyph next to the title was the most recognisable
+    # "this was generated" signal on the page, and it encoded nothing.
     return (PAGE.replace("__CSS__", CSS)
                 .replace("__PIECES__", json.dumps(PIECES))
-                .replace("__VIEWBOX__", v)
-                .replace("__KNIGHT__", knight))
+                .replace("__VIEWBOX__", str(VIEWBOX)))
 
 
 @app.route("/meta")
