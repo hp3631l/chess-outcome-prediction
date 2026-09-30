@@ -1,0 +1,72 @@
+======================================================================
+CHESS EVALUATION MODEL - TRAINING REPORT
+======================================================================
+python 3.14.7 | numpy 2.5.3 | pandas 3.0.6
+
+Dataset saved: positions_dataset.csv  shape=(26329, 36)
+Class counts: {0: 7881, 1: 10700, 2: 7748}
+Class fractions: {0: 0.299, 1: 0.406, 2: 0.294}
+Majority-class baseline accuracy: 0.4064
+Game-id vector len=26329 vs X len=26329 match=True
+Train positions: 20657 | Test positions: 5672 (split by game, no leakage)
+
+Terminal positions in train: 413 (weight 5x)
+
+Training XGBoost (300 trees, depth 7)...
+
+TEST ACCURACY: 0.9542   (majority baseline 0.4064)
+
+Classification report:
+              precision    recall  f1-score   support
+
+       Black     0.9695    0.9609    0.9652      1687
+        Draw     0.9414    0.9494    0.9453      2350
+       White     0.9571    0.9541    0.9556      1635
+
+    accuracy                         0.9542      5672
+   macro avg     0.9560    0.9548    0.9554      5672
+weighted avg     0.9542    0.9542    0.9542      5672
+
+Confusion matrix (rows=true, cols=pred):
+       pred Black  pred Draw  pred White
+Black        1621         64           2
+Draw           51       2231          68
+White           0         75        1560
+
+======================================================================
+MATERIAL MONOTONICITY CHECK (White's predicted win prob vs White material)
+======================================================================
+scenario                            mat diff  P(black)   P(draw)  P(white)
+start position                          +0.0     0.001     0.987     0.012
+White + Pawn                            +1.0     0.004     0.982     0.015
+White + 2 Pawns                         +2.0     0.002     0.911     0.087
+White + Knight                          +3.2     0.001     0.641     0.357
+White + Bishop                          +3.3     0.003     0.459     0.539
+White + Rook                            +5.0     0.000     0.008     0.992
+White + Queen                           +9.0     0.000     0.001     0.999
+White + Queen + Rook                   +14.0     0.000     0.001     0.999
+Black + Queen                           -9.0     0.998     0.002     0.000
+Black + Queen + Rook                   -14.0     0.999     0.000     0.000
+
+PASS: P(White) rises monotonically with White's material advantage.
+
+Terminal position checks:
+  Fool's mate (Black won)            mate=True P(black)=0.999 P(draw)=0.000 P(white)=0.000  PASS
+  Scholar's mate (White won)         mate=True P(black)=0.005 P(draw)=0.000 P(white)=0.995  PASS
+
+Top 15 features by importance:
+  material_diff                0.2231
+  is_checkmate                 0.2129
+  white_can_mate_now           0.1005
+  black_can_mate_now           0.0624
+  piece_diff_queen             0.0529
+  game_phase                   0.0351
+  hanging_pieces               0.0341
+  side_to_move                 0.0325
+  piece_diff_rook              0.0267
+  piece_diff_knight            0.0233
+  mobility_black               0.0202
+  mobility_white               0.0172
+  piece_diff_pawn              0.0165
+  piece_diff_bishop            0.0132
+  legal_move_count             0.0116

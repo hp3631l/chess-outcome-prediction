@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Runtime
+server.log
+train.log
+nohup.out
+
+# Generated / large artifacts (regenerate via train_model.py + build_report.py)
+# Keep model.pkl + scaler.pkl so the app runs without retraining.
+model.pkl
+scaler.pkl
+positions_dataset.csv
+report.html
+report.pdf
+report_top.png
