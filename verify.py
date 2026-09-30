@@ -18,9 +18,11 @@ def read(pg):
             blk: document.getElementById('v-black').textContent,
             drw: document.getElementById('v-draw').textContent,
             wht: document.getElementById('v-white').textContent,
+            lead: document.querySelector('.vrow.lead')?.dataset.k,
             turn: document.getElementById('turntxt').textContent,
             turnCls: document.getElementById('turn').className,
             mat: document.getElementById('evalcp').textContent,
+            rows: document.querySelectorAll('.sheet tbody tr').length,
             hist: document.getElementById('hist').innerText.replace(/\\s+/g,' ').trim(),
             sel: document.querySelectorAll('.sq.sel').length,
             hints: document.querySelectorAll('.hint').length,
@@ -43,11 +45,11 @@ with sync_playwright() as p:
     pg.evaluate("fetch('/new',{method:'POST'})")
     pg.wait_for_timeout(400)
     pg.reload(wait_until="networkidle")
-    pg.wait_for_timeout(1500)
+    pg.wait_for_timeout(1600)
 
     s = read(pg)
     print(f"START   turn='{s['turn']}' mat={s['mat']} "
-          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
+          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']} lead={s['lead']}")
     pg.screenshot(path="shot_1_start.png")
 
     # --- selection affordances ---
@@ -59,7 +61,7 @@ with sync_playwright() as p:
     # --- a real move, check the animation ran ---
     click(pg, "e4")
     s = read(pg)
-    print(f"MOVE    turn='{s['turn']}' last={s['last']} hist='{s['hist']}' "
+    print(f"MOVE    turn='{s['turn']}' last={s['last']} rows={s['rows']} "
           f"undoEnabled={not s['undoDisabled']}")
 
     # --- Scholar's mate: verify the full run ---
@@ -71,21 +73,20 @@ with sync_playwright() as p:
                     ("d1", "h5"), ("g8", "f6")]:
         play(pg, frm, to)
     s = read(pg)
-    print(f"PRE-MATE {s['turn']} | blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
+    print(f"PRE-MATE {s['turn']} | blk {s['blk']}/drw {s['drw']}/wht {s['wht']} lead={s['lead']}")
     pg.screenshot(path="shot_3_midgame.png")
 
     play(pg, "h5", "f7")
     s = read(pg)
     print(f"MATE     turn='{s['turn']}' cls='{s['turnCls']}' "
-          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
-    print(f"         hist='{s['hist']}'")
+          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']} lead={s['lead']}")
     pg.screenshot(path="shot_4_checkmate.png")
 
     # --- undo restores ---
     pg.click("#btn-undo")
     pg.wait_for_timeout(900)
     s = read(pg)
-    print(f"UNDO     turn='{s['turn']}' hist='{s['hist']}'")
+    print(f"UNDO     turn='{s['turn']}' rows={s['rows']} undoEnabled={not s['undoDisabled']}")
 
     # --- flip ---
     pg.click("#btn-flip")
@@ -116,7 +117,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(800)
     s = read(pg)
     print(f"KEYBOARD focus after select={focus_after_select} -> arrow to {focus_target}"
-          f" | hist='{s['hist']}' turn='{s['turn']}'")
+          f" | rows={s['rows']} turn='{s['turn']}'")
 
     # --- focus ring visible ---
     pg.locator('.sq[data-square="d2"]').focus()

@@ -318,13 +318,29 @@ The front-end is a single self-contained HTML document — no framework, no buil
 **no runtime CDN dependency**. That last point was learned the hard way: the first
 version loaded `chessboard.js` and `chess.js` from a CDN, and whenever that CDN was
 unreachable the page rendered completely blank. Everything the board needs is now
-inlined.
+inlined, and the only optional network request is the webfont, loaded non-blocking with
+a system fallback.
 
 **Piece artwork** is the standard Wikipedia set by Cburnett (CC BY-SA 3.0), fetched as
 80x80 PNGs and traced to SVG paths by `build_pieces.py` (contour trace + Douglas-Peucker
 simplification, 7.1 KB for all twelve pieces). Vectors rather than the source rasters
 because the 80px originals go visibly soft on any high-DPI screen, and vectors remove the
 last external fetch.
+
+#### Visualisation choice
+
+A three-class probability is a **composition**, not three independent metrics, so it is
+drawn as a single 100%-wide stacked bar rather than three separate progress bars. Three
+parallel bars make it impossible to see that one class dominates, which is the only
+thing a reader actually wants to know. The stacked bar is animated with
+`transform: scaleX()` only, so it stays on the compositor.
+
+The leading outcome is promoted typographically (larger, brighter, accent swatch) instead
+of being restated as a separate headline figure — printing "Draw 98.7%" twice is a
+duplication that reads as filler.
+
+Move history is rendered as a real `<table>` score sheet (move number, White, Black in
+columns) rather than a wrapped run of text, because that is what the artefact is.
 
 | Concern | Implementation |
 |---|---|
@@ -333,9 +349,10 @@ last external fetch.
 | Coordinates | Outside the playing area, per chess convention |
 | Legal moves | Centred dot; ring when the target holds a capture |
 | Check | Radial highlight on the king actually in check |
-| Prediction | Three meters + a material readout in pawns |
-| Result | Turn strip recolours by the winner (green / red / slate) |
-| Palette | One accent (gold) plus three semantic outcome colours |
+| Prediction | One stacked composition bar + promoted leader + material in pawns |
+| Result | Turn line recolours by the winner (green / red / slate) |
+| Model metadata | Native `<details>` disclosure, not a header row of stat tiles |
+| Palette | Flat near-black ground; the board is the only warm, saturated element |
 
 The 64 squares are created once and mutated in place rather than re-rendered. That is
 what makes the move animation possible at all, and it also keeps focus stable for
@@ -345,18 +362,20 @@ keyboard users mid-game.
 
 - Every square is a real `<button>` with a descriptive `aria-label` ("White pawn on e2"),
   so the board is navigable by screen reader and playable without a mouse: arrow keys
-  move focus, Enter selects and confirms.
+  move focus, Enter selects and confirms. `F` flips the board, `N` starts a new game.
 - `role="status"` / `role="log"` with `aria-live="polite"` announce selections, moves and
-  the result; the evaluation meters are a single atomic live region so the three
+  the result; the probability list is a single atomic live region so the three
   percentages are not announced as three separate interruptions.
-- Full keyboard operation, visible `:focus-visible` rings, and pointer/selection state
-  that is never colour-only.
+- The score sheet uses real table semantics — `<th scope="col">`, `<th scope="row">` and
+  a `<caption>` — so a screen reader announces the column headers for each move.
+- Full keyboard operation, visible `:focus-visible` rings, and state that is never
+  communicated by colour alone (the leader is also larger and bolder).
 - Every transition animates only `transform` and `opacity`; all easings are custom
   `cubic-bezier` curves, never `linear` or `ease-in-out`.
-- `prefers-reduced-motion` collapses all animation, and `prefers-reduced-transparency`
-  flattens the glass panels.
-- Verified at 1440 / 1024 / 768 / 390 px with no horizontal scroll; the board scales
-  from 62 px to 41 px squares and the layout drops to a single column below 1000 px.
+- `prefers-reduced-motion` collapses all animation.
+- Verified at 1440 / 1120 / 1000 / 768 / 390 px with no horizontal scroll; the board
+  scales from 66 px to 41 px squares and the layout drops to a single column below
+  1000 px.
 
 ### 7.1 Screenshots
 
