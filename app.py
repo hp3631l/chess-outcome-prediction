@@ -200,6 +200,49 @@ body{
        grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));
        user-select:none;-webkit-user-select:none;touch-action:manipulation;
        border-radius:2px;overflow:hidden}
+/* FLIP -- the board turns a half-revolution in its own plane. No depth, no
+   perspective, no backface: just a rotation.
+
+   Two facts make this cheap. A 180deg turn maps every square onto the
+   square that flips it, and an 8x8 checkerboard is invariant under 180deg
+   -- so the turned board and the re-rendered board are the SAME pixels.
+   The layout therefore only has to be rewritten once the turn has landed,
+   and that rewrite is invisible.
+
+   The pieces are counter-rotated so they stay upright throughout. What the
+   eye reads as "the board turned" is the pieces orbiting with it while the
+   squares turn underneath. The mid-turn scale dip keeps the rotation from
+   reading as a flat spin. */
+.boardwrap.turning .board{transform:rotate(180deg);animation:turn 520ms var(--ease)}
+/* .pc carries transition:transform for the move FLIP below, and a transition
+   outranks an animation in the cascade -- left alone it would drive this
+   counter-rotation in 300ms while the board took 520ms, and the two would
+   visibly fall out of sync halfway round. Kill it so only the animation runs. */
+.boardwrap.turning .pc  {transform:rotate(-180deg);
+                         animation:turnpc 520ms var(--ease);
+                         transition:none}
+/* The midpoint is not decoration -- CSS applies the timing function to each
+   keyframe SEGMENT, so `turn` (which has one) and a plain two-stop
+   `turnpc` would run on different curves and fall out of sync halfway
+   round. Matching the stops is what keeps the pieces dead upright. */
+@keyframes turn{
+  0%  {transform:rotate(0deg)   scale(1)}
+  50% {transform:rotate(90deg)  scale(.955)}
+  100%{transform:rotate(180deg) scale(1)}
+}
+@keyframes turnpc{
+  0%  {transform:rotate(0deg)}
+  50% {transform:rotate(-90deg)}
+  100%{transform:rotate(-180deg)}
+}
+/* When .turning comes off, the board and pieces snap back to zero in the
+   same style step as the layout rewrite. Without this the pieces would
+   tween from -180deg to 0 and visibly spin a whole second time. */
+.boardwrap.snapping .board,.boardwrap.snapping .pc{transition:none}
+/* Coordinate labels live outside .board, so they never turn with it. Fade
+   them across the swap rather than letting them reverse while still legible. */
+.coords,.ranks{transition:opacity 300ms var(--ease)}
+.boardwrap.turning .coords,.boardwrap.turning .ranks{opacity:0}
 .sq{position:relative;display:grid;place-items:center;padding:0;margin:0;border:0;
     background:var(--sq-light);cursor:pointer;line-height:0;
     -webkit-tap-highlight-color:transparent}
@@ -211,23 +254,29 @@ body{
 .sq.sel{box-shadow:inset 0 0 0 4px var(--accent)}
 .sq.king::after{content:'';position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(circle,rgba(226,104,127,.95) 7%,rgba(226,104,127,.4) 42%,transparent 72%)}
+/* FLIP: the piece is rendered at its NEW square, then briefly translated back
+   to where it came from and released. transform-only, so the whole move runs
+   on the compositor and never triggers layout. */
 .pc{position:absolute;inset:9%;z-index:2;pointer-events:none;line-height:0;
     transition:transform 300ms var(--ease),opacity 300ms var(--ease)}
+.pc.flip-in{transition:none}              /* hold the offset until we release it */
+/* the captured piece fades and shrinks out on the square it stood on */
+.pc.dying{opacity:0;transform:scale(.55);
+          transition:opacity 250ms var(--ease),transform 250ms var(--ease)}
 .pc svg{width:100%;height:100%;display:block;overflow:visible}
+/* mid-flight lift — animated on the inner svg so it cannot fight the
+   translate on .pc above, which owns that transform property */
+.pc.lift svg{animation:lift 300ms var(--ease)}
+@keyframes lift{0%{transform:scale(1)}34%{transform:scale(1.1)}100%{transform:scale(1)}}
 .pc.w path{fill:#fbfaf7;stroke:#171a21;stroke-width:4.2;
            stroke-linejoin:round;paint-order:stroke fill}
 .pc.b path{fill:#191d26;stroke:#fbfaf7;stroke-width:4.2;
            stroke-linejoin:round;paint-order:stroke fill}
-.pc.pop{animation:pop 300ms var(--ease)}
-@keyframes pop{from{transform:scale(.72);opacity:0}to{transform:scale(1);opacity:1}}
 .hint{position:absolute;left:50%;top:50%;width:26%;height:26%;z-index:3;
       transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
       background:rgba(16,18,22,.55)}
 .hint.cap{width:84%;height:84%;background:none;box-sizing:border-box;
           border:5px solid rgba(16,18,22,.48)}
-.ghost{position:absolute;z-index:8;pointer-events:none;line-height:0;
-       transition:transform 300ms var(--ease),opacity 300ms var(--ease)}
-.ghost svg{width:100%;height:100%;display:block}
 
 .coords{display:flex;font-family:var(--mono);font-size:.6rem;color:var(--ink-3);
         font-variant-numeric:tabular-nums}
@@ -432,7 +481,7 @@ const FILES = "abcdefgh";
 const NAME = {p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"};
 const ROWS = ["black","draw","white"];
 
-let sel = null, targets = [], flipped = false, lastMove = null;
+let sel = null, targets = [], flipped = false, lastMove = null, flipping = false;
 const el = id => document.getElementById(id);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -450,9 +499,9 @@ function svg(pc){
   } else { console.error("no piece geometry for key:", key); }
   return s;
 }
-function pieceEl(pc, pop){
+function pieceEl(pc){
   const s = document.createElement("span");
-  s.className = "pc " + (pc === pc.toUpperCase() ? "w" : "b") + (pop ? " pop" : "");
+  s.className = "pc " + (pc === pc.toUpperCase() ? "w" : "b");
   s.dataset.pc = pc;
   s.appendChild(svg(pc));
   return s;
@@ -469,8 +518,16 @@ for (let r = 0; r < 8; r++){
     boardEl.appendChild(b);
   }
 }
-el("cfiles").innerHTML = FILES.split("").map(f => "<span>"+f+"</span>").join("");
-el("cranks").innerHTML = [8,7,6,5,4,3,2,1].map(n => "<span>"+n+"</span>").join("");
+/* Coordinates sit outside the rotating board, so they have to be rebuilt
+   whenever the orientation changes: flipped, the top-left square is h1, so
+   the files read h..a and the ranks read 1..8. */
+function renderCoords(){
+  const files = flipped ? FILES.split("").reverse().join("") : FILES;
+  const ranks = flipped ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
+  el("cfiles").innerHTML = files.split("").map(f => "<span>"+f+"</span>").join("");
+  el("cranks").innerHTML = ranks.map(n => "<span>"+n+"</span>").join("");
+}
+renderCoords();
 
 function label(sq, pieces, turn, over){
   const pc = pieces[sq];
@@ -479,8 +536,7 @@ function label(sq, pieces, turn, over){
   return sq + ", empty, " + (turn === "w" ? "White" : "Black") + " to move";
 }
 
-function paint(state, opts){
-  opts = opts || {};
+function paint(state){
   for (const b of boardEl.children){
     // row 0 is the top. Normal orientation => rank 8 on top, so r = 8 - row.
     const r = flipped ? Number(b.dataset.row) + 1 : 8 - Number(b.dataset.row);
@@ -493,7 +549,7 @@ function paint(state, opts){
     if (!want){ if (cur) cur.remove(); }
     else if (!cur || cur.dataset.pc !== want){
       if (cur) cur.remove();
-      b.appendChild(pieceEl(want, opts.pop === sq));
+      b.appendChild(pieceEl(want));
     }
 
     b.className = "sq " + (((Number(b.dataset.row) + Number(b.dataset.col)) % 2) ? "d" : "");
@@ -572,23 +628,59 @@ async function api(path, body){
   return r.json();
 }
 
-function slide(from, to, pc){
-  if (reduceMotion || !from || !to) return;
-  const a = boardEl.querySelector('[data-square="'+from+'"]');
-  const b = boardEl.querySelector('[data-square="'+to+'"]');
-  if (!a || !b) return;
+/* ------------------------------------------------------------------
+   Move animation.
+
+   paint() destroys and recreates piece elements, so by the time we could
+   animate, the piece is already sitting in its NEW square. The fix is to
+   measure the square the piece is travelling FROM *before* the repaint,
+   then invert that delta on the newly created element and release it:
+
+       translate(from - to)  ->  next frame  ->  translate(0)
+
+   Both the offset and the release are transform/opacity only, so nothing
+   reflows and the browser can keep the whole move on the compositor.
+   ------------------------------------------------------------------ */
+function rectOf(sq){
+  const b = boardEl.querySelector('[data-square="' + sq + '"]');
+  return b ? b.getBoundingClientRect() : null;
+}
+
+function flipPiece(origin, to){
+  if (reduceMotion || flipping || !origin || !to) return;
+  const dst = boardEl.querySelector('[data-square="' + to + '"] .pc');
+  if (!dst) return;
+  const b = dst.getBoundingClientRect();
+  const dx = origin.left - b.left, dy = origin.top - b.top;
+  if (!dx && !dy) return;                      // already in place, nothing to do
+
+  dst.classList.add("flip-in", "lift");
+  dst.style.transform = "translate(" + dx + "px," + dy + "px)";
+  // Force a reflow so the browser commits the offset position as its own
+  // style before we change it. Without this the two values are coalesced
+  // into the final state and no motion is ever painted.
+  void dst.offsetWidth;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      dst.classList.remove("flip-in");
+      dst.style.transform = "";
+    });
+  });
+  setTimeout(() => dst.classList.remove("lift"), 340);
+}
+
+function diePiece(origin, pc){
+  if (reduceMotion || flipping || !origin) return;
   const box = boardEl.getBoundingClientRect();
-  const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-  const g = document.createElement("div");
-  g.className = "ghost " + (pc === pc.toUpperCase() ? "w" : "b");
-  g.style.width = ra.width + "px"; g.style.height = ra.height + "px";
-  g.style.left = (ra.left - box.left) + "px"; g.style.top = (ra.top - box.top) + "px";
+  const g = document.createElement("span");
+  g.className = "pc " + (pc === pc.toUpperCase() ? "w" : "b") + " dying";
+  g.style.left   = (origin.left - box.left) + "px";
+  g.style.top    = (origin.top  - box.top ) + "px";
+  g.style.width  = origin.width  + "px";
+  g.style.height = origin.height + "px";
   g.appendChild(svg(pc));
   boardEl.appendChild(g);
-  requestAnimationFrame(() => {
-    g.style.transform = "translate(" + (rb.left - ra.left) + "px," + (rb.top - ra.top) + "px)";
-  });
-  setTimeout(() => g.remove(), 330);
+  setTimeout(() => g.remove(), 300);
 }
 
 async function onSquare(sq){
@@ -607,12 +699,22 @@ async function onSquare(sq){
     const from = sel;
     const r = await api("/move", {from: from, to: sq});
     if (r.ok){
+      // Capture the origin geometry BEFORE paint() tears down the old
+      // elements. Afterwards these rects would no longer exist.
+      const origins = {};
+      (r.anims || []).forEach(a => { origins[a.to] = rectOf(a.from); });
+      const capOrigin = r.captured ? rectOf(r.captured.sq) : null;
+
       lastMove = {from, to: sq};
       sel = null; targets = [];
       const s = await api("/state");
-      paint(s, {pop: sq});
-      slide(from, sq, r.moved);
+      paint(s);
       setProbs(await api("/predict", {}));
+
+      // Release each piece from where it started, and fade the captured one.
+      (r.anims || []).forEach(a => flipPiece(origins[a.to], a.to));
+      if (r.captured) diePiece(capOrigin, r.captured.pc);
+
       say(s.over ? s.status : "Moved to " + sq + ".");
     } else {
       const s = await api("/state");
@@ -640,11 +742,43 @@ el("btn-undo").addEventListener("click", async () => {
   setProbs(await api("/predict", {}));
   say("Last move taken back.");
 });
-el("btn-flip").addEventListener("click", async () => {
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+async function flipBoard(){
+  if (flipping) return;
+  const s = await api("/state");
+
+  if (reduceMotion){
+    flipped = !flipped;
+    renderCoords();
+    paint(s);
+    say("Board flipped.");
+    return;
+  }
+
+  flipping = true;
+  const wrap = boardEl.closest(".boardwrap");
+
+  // The board turns a half-revolution in place. Nothing is rewritten while
+  // it is moving, so the whole turn runs off a single style change.
+  wrap.classList.add("turning");
+  await wait(540);                        // 520ms turn, plus a beat to land
+
+  // The turn has landed and now reads identically to the flipped layout, so
+  // the rewrite, the coordinate swap and the reset to zero can all happen in
+  // one synchronous step -- the browser paints only once, after all of it.
+  wrap.classList.add("snapping");
+  wrap.classList.remove("turning");
   flipped = !flipped;
-  paint(await api("/state"));
+  renderCoords();
+  paint(s);
+  void boardEl.offsetWidth;               // commit the snap as one style
+  wrap.classList.remove("snapping");
+
+  flipping = false;
   say("Board flipped.");
-});
+}
+el("btn-flip").addEventListener("click", flipBoard);
 
 boardEl.addEventListener("keydown", e => {
   const b = e.target.closest(".sq"); if (!b) return;
@@ -777,8 +911,45 @@ def move():
     if moving:
         pc = PIECE_CHARS[moving.piece_type]
         pc = pc.upper() if moving.color == chess.WHITE else pc
+
+    # Where every piece stood BEFORE the push, so captures can be found by
+    # subtraction afterwards rather than special-cased per move type.
+    before = dict(b.piece_map())
+
+    # Animate EVERY piece that relocates, not just the one that was clicked.
+    # Castling moves two; en passant removes a pawn from a square that is
+    # neither the origin nor the destination, so it is reported separately.
+    anims = [{"from": chess.square_name(fr), "to": chess.square_name(to), "pc": pc}]
+    if b.is_castling(mv):
+        rank = chess.square_rank(fr)
+        if chess.square_file(to) == 6:                       # king side
+            rf, rt = chess.square(7, rank), chess.square(5, rank)
+        else:                                                # queen side
+            rf, rt = chess.square(0, rank), chess.square(3, rank)
+        anims.append({"from": chess.square_name(rf),
+                      "to": chess.square_name(rt),
+                      "pc": "R" if b.turn == chess.WHITE else "r"})
+
     b.push(mv)
-    return jsonify(ok=True, san=san, moved=pc)
+
+    # A square that held a piece and now holds a DIFFERENT one (or nothing),
+    # without being the origin of a mover, lost a piece. Comparing identities
+    # rather than emptiness is what catches an ordinary capture: there the
+    # victim's square is the destination, so it is occupied again -- by the
+    # attacker. This one rule also covers en passant (victim on an unrelated
+    # square) and castling (vacated squares that ARE origins).
+    vacated = {chess.parse_square(a["from"]) for a in anims}
+    captured = None
+    for sq, piece in before.items():
+        if sq in vacated:
+            continue
+        if b.piece_at(sq) != piece:
+            ch = PIECE_CHARS[piece.piece_type]
+            captured = {"sq": chess.square_name(sq),
+                        "pc": ch.upper() if piece.color == chess.WHITE else ch}
+            break
+
+    return jsonify(ok=True, san=san, moved=pc, anims=anims, captured=captured)
 
 
 @app.route("/predict", methods=["POST", "GET"])
