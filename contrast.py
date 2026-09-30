@@ -56,6 +56,55 @@ def hexof(css):
     return "#%02X%02X%02X" % tuple(round(v) for v in nums)
 
 
+# --- piece legibility -------------------------------------------------------
+# The regression that motivated this: in dark mode the board was near-black,
+# a near-black piece's FILL measured 1.29:1 against its square, and every black
+# piece rendered as a hollow wireframe. A piece must read as a SOLID shape, so
+# at least one channel (fill or stroke) has to clear 3:1 on BOTH squares.
+PIECES = """() => {
+  const sq = [...document.querySelectorAll('.sq')];
+  const dark = sq.find(e => e.classList.contains('d'));
+  const light = sq.find(e => !e.classList.contains('d'));
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  const pick = e => e ? getComputedStyle(e).backgroundColor : null;
+  return {
+    'light square': [pick(light), g('--sq-light')],
+    'dark square':  [pick(dark),  g('--sq-dark')],
+    'white fill':   [null, g('--piece-w')],
+    'white stroke': [null, g('--piece-w-line')],
+    'black fill':   [null, g('--piece-b')],
+    'black stroke': [null, g('--piece-b-line')],
+  };
+}"""
+
+
+def piece_report(br, res):
+    """Print piece-vs-square contrast for both themes."""
+    print("\n=== PIECE LEGIBILITY (needs SOME channel >=3:1 on BOTH squares) ===")
+    print("a piece that only reads by outline renders as a hollow wireframe\n")
+    allok = True
+    for theme in ("light", "dark"):
+        p = res[theme]["pieces"]
+        print(f"  [{theme}]")
+        for side, fill_k, stroke_k in (("white", "white fill", "white stroke"),
+                                       ("black", "black fill", "black stroke")):
+            fill, stroke = p[fill_k][1], p[stroke_k][1]
+            cells = []
+            ok = True
+            for sqk in ("light square", "dark square"):
+                rf = ratio(fill, p[sqk][1])
+                rs = ratio(stroke, p[sqk][1])
+                best = max(rf, rs)
+                ok &= best >= 3
+                cells.append(f"{sqk.split()[0]}: fill {rf:5.2f} stroke {rs:5.2f}")
+            allok &= ok
+            print(f"    {side:5} " + " | ".join(cells) +
+                  f"   {'SOLID' if ok else '*** HOLLOW ***'}")
+    print(f"\n  {'ALL PIECES SOLID IN BOTH THEMES' if allok else '*** HOLLOW PIECES ***'}")
+    return allok
+
+
 with sync_playwright() as p:
     br = p.chromium.launch()
     res = {}
@@ -75,6 +124,7 @@ with sync_playwright() as p:
             pg.click(f'.sq[data-square="{f}"]'); pg.wait_for_timeout(170)
             pg.click(f'.sq[data-square="{t}"]'); pg.wait_for_timeout(250)
         snap.update({r[0]: (r[1], r[2]) for r in pg.evaluate(PROBE)})
+        snap["pieces"] = pg.evaluate(PIECES)
         res[scheme] = snap
         ctx.close()
 
@@ -97,5 +147,6 @@ with sync_playwright() as p:
             print(f"{n:22} {rl:6.2f}:1 {rd:6.2f}:1  {'PASS' if ok else 'FAIL'}")
 
     print("\n" + ("ALL PASS IN BOTH THEMES" if allok else "*** SOME FAILURES ***"))
+    allok &= piece_report(br, res)
     br.close()
     sys.exit(0 if allok else 1)

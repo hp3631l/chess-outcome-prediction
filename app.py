@@ -174,7 +174,8 @@ CSS = r"""
   /* Marks are the ink used for board chrome -- selection, focus, legal
      targets, last move. One token, so they flip with the theme instead of
      being hardcoded black and vanishing on a dark board. */
-  --mark:#111111;
+  --mark:#111111;         /* page chrome */
+  --mark-board:#111111;   /* board chrome; differs from --mark in dark mode */
   --wash:#EEECE7;                     /* lift surface on hover */
   --track:rgba(17,17,17,.07);         /* empty bar / track */
   --hint:rgba(17,17,17,.60);          /* legal-target marks, 3:1 minimum */
@@ -198,15 +199,15 @@ CSS = r"""
    A warm charcoal, not blue-black: the paper keeps the same warm hue family
    as the light theme so the page never reads as a different site.
 
-   Two things genuinely invert rather than just shifting value:
-   - Which channel draws a piece. On the light board a white piece is 1.2:1
-     against its own square and is read entirely by its dark outline; here a
-     white piece reads by its fill and a black piece by its light outline.
-   - The board sits DARKER than the page, not lighter, so the paper stays the
-     brightest surface and the board reads as an inset object.
-   All values below were measured, not eyeballed: every text pair clears
-   4.5:1, both piece channels clear 11:1 on both squares, legal-target marks
-   clear 3:1, and the draw segment clears 3:1 against its own track. */
+   The BOARD is mid-tone, not near-black. A near-black piece only reads as a
+   solid shape if its FILL clears the square, and it cannot clear a near-black
+   square -- measured at 1.29:1, which left every black piece rendering as a
+   hollow wireframe outline while the white ones were solid. No chess product
+   puts near-black pieces on near-black squares. So the board is a warm walnut
+   panel that is dark relative to the page yet light enough to host both fills
+   solid (white 3.39-4.48:1, black 3.58-4.72:1). That also flips board chrome
+   back to dark ink, so it is tokenised as --mark-board separately from the
+   page-level --mark, which stays light on the dark paper. */
 [data-theme="dark"]{
   color-scheme:dark;
   --paper:#14120F;
@@ -217,18 +218,19 @@ CSS = r"""
   --body:#D8D4CB;
   --muted:#A9A49A;
   --faint:#8F8A80;
-  --sq-light:#2E2A24;
-  --sq-dark:#201D19;
-  --piece-w:#EDE9E1;      --piece-w-line:#14120F;
-  --piece-b:#17140F;      --piece-b-line:#EDE9E1;
+  --sq-light:#8E7F6B;
+  --sq-dark:#7C6B54;
+  --piece-w:#F2EFE9;      --piece-w-line:#14120F;
+  --piece-b:#17140F;      --piece-b-line:#F2EFE9;
   --mark:#F2EFE9;
+  --mark-board:#14120F;
   --wash:#262219;
   --track:rgba(242,239,233,.09);
-  --hint:rgba(242,239,233,.60);
-  --wash-last:rgba(242,239,233,.10);
-  --wash-last-d:rgba(242,239,233,.15);
-  --check:rgba(224,122,126,.92);
-  --check-soft:rgba(224,122,126,.26);
+  --hint:rgba(20,18,15,.85);
+  --wash-last:rgba(20,18,15,.12);
+  --wash-last-d:rgba(20,18,15,.16);
+  --check:rgba(158,40,38,.85);
+  --check-soft:rgba(158,40,38,.22);
   --shadow:0 1px 2px rgba(0,0,0,.5),0 12px 28px -18px rgba(0,0,0,.8);
   --scroll:rgba(242,239,233,.16);
   --win-w:#6DBE86;
@@ -308,13 +310,13 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
     -webkit-tap-highlight-color:transparent}
 .sq.d{background:var(--sq-dark)}
 .sq:focus{outline:none}
-.sq:focus-visible{outline:2px solid var(--mark);outline-offset:-3px;z-index:6}
+.sq:focus-visible{outline:2px solid var(--mark-board);outline-offset:-3px;z-index:6}
 /* Last move is a memory cue, not an action target, so it sits below 3:1 by
    design -- but it must still be perceptible, hence two alphas. */
 .sq.last::after{content:'';position:absolute;inset:0;pointer-events:none;
     background:var(--wash-last)}
 .sq.d.last::after{background:var(--wash-last-d)}
-.sq.sel{box-shadow:inset 0 0 0 3px var(--mark)}
+.sq.sel{box-shadow:inset 0 0 0 3px var(--mark-board)}
 .sq.king::after{content:'';position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(circle,var(--check) 6%,var(--check-soft) 40%,transparent 68%)}
 
