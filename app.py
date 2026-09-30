@@ -143,6 +143,9 @@ CSS = r"""
    ============================================================ */
 *,*::before,*::after{box-sizing:border-box}
 :root{
+  /* Light is the default paint. The dark set lives in [data-theme="dark"]
+     below; an inline script in <head> picks one before first paint, so there
+     is no flash and no duplicated media query. */
   --paper:#F7F6F3;
   --surface:#FFFFFF;
   --line:#EAEAEA;
@@ -162,20 +165,74 @@ CSS = r"""
      of flipping per square colour. */
   --sq-light:#EBE6DA;
   --sq-dark:#B4AC9C;
+  /* WHICH channel carries the figure flips between themes. In light, a white
+     piece reads by its dark outline (its fill is 1.2:1 on a light square);
+     in dark, a white piece reads by its fill and a black piece by its light
+     outline. The two pairs are deliberately exact mirrors. */
   --piece-w:#FCFBF8;      --piece-w-line:#141310;
   --piece-b:#17150F;      --piece-b-line:#FCFBF8;
+  /* Marks are the ink used for board chrome -- selection, focus, legal
+     targets, last move. One token, so they flip with the theme instead of
+     being hardcoded black and vanishing on a dark board. */
+  --mark:#111111;
+  --wash:#EEECE7;                     /* lift surface on hover */
+  --track:rgba(17,17,17,.07);         /* empty bar / track */
+  --hint:rgba(17,17,17,.60);          /* legal-target marks, 3:1 minimum */
+  --wash-last:rgba(17,17,17,.13);
+  --wash-last-d:rgba(17,17,17,.17);
+  --check:rgba(159,47,45,.9);
+  --check-soft:rgba(159,47,45,.24);
+  --shadow:0 1px 2px rgba(17,17,17,.04),0 12px 28px -18px rgba(17,17,17,.22);
+  --scroll:rgba(17,17,17,.14);
   /* data only -- never chrome */
   --win-w:#346538;
   --win-b:#9F2F2D;
-  --seg-w:#346538;
-  --seg-d:#B4B2AC;
-  --seg-b:#9F2F2D;
   --ease:cubic-bezier(.22,1,.36,1);
   --sq:66px;
   --r:6px;
   --sans:'Geist',ui-sans-serif,system-ui,'Segoe UI',sans-serif;
   --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
   color-scheme:light;
+}
+/* ---------- dark ----------
+   A warm charcoal, not blue-black: the paper keeps the same warm hue family
+   as the light theme so the page never reads as a different site.
+
+   Two things genuinely invert rather than just shifting value:
+   - Which channel draws a piece. On the light board a white piece is 1.2:1
+     against its own square and is read entirely by its dark outline; here a
+     white piece reads by its fill and a black piece by its light outline.
+   - The board sits DARKER than the page, not lighter, so the paper stays the
+     brightest surface and the board reads as an inset object.
+   All values below were measured, not eyeballed: every text pair clears
+   4.5:1, both piece channels clear 11:1 on both squares, legal-target marks
+   clear 3:1, and the draw segment clears 3:1 against its own track. */
+[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#14120F;
+  --surface:#1D1A16;
+  --line:#2A2620;
+  --line-2:#383329;
+  --ink:#F2EFE9;
+  --body:#D8D4CB;
+  --muted:#A9A49A;
+  --faint:#8F8A80;
+  --sq-light:#2E2A24;
+  --sq-dark:#201D19;
+  --piece-w:#EDE9E1;      --piece-w-line:#14120F;
+  --piece-b:#17140F;      --piece-b-line:#EDE9E1;
+  --mark:#F2EFE9;
+  --wash:#262219;
+  --track:rgba(242,239,233,.09);
+  --hint:rgba(242,239,233,.60);
+  --wash-last:rgba(242,239,233,.10);
+  --wash-last-d:rgba(242,239,233,.15);
+  --check:rgba(224,122,126,.92);
+  --check-soft:rgba(224,122,126,.26);
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 12px 28px -18px rgba(0,0,0,.8);
+  --scroll:rgba(242,239,233,.16);
+  --win-w:#6DBE86;
+  --win-b:#E07A7E;
 }
 html,body{height:100%}
 body{
@@ -193,7 +250,22 @@ body{
 /* ---------- masthead: type only, no mark ---------- */
 .masthead{display:flex;align-items:baseline;justify-content:space-between;
           gap:24px;padding:38px 0 30px;flex-wrap:wrap}
+.masthead-r{display:flex;align-items:baseline;gap:22px}
 h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.012em}
+/* The toggle is a peer of the About disclosure: same size, same weight, same
+   resting colour. A filled or ringed switch would reintroduce the accent
+   that was removed from every other control. The dot is a two-tone disc that
+   reads half-filled in light and half-filled in dark -- one element, no icon
+   font, no emoji. */
+.theme{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:.8rem;
+       color:var(--muted);cursor:pointer;padding:0 0 3px;
+       border-bottom:1px solid var(--line-2);
+       transition:color 200ms cubic-bezier(.4,0,.2,1),border-color 200ms cubic-bezier(.4,0,.2,1)}
+.theme:hover{color:var(--ink);border-color:var(--ink)}
+.theme:focus-visible{outline:2px solid var(--mark);outline-offset:3px}
+.theme-dot{width:9px;height:9px;flex:none;border-radius:50%;
+           background:linear-gradient(90deg,var(--mark) 50%,transparent 50%);
+           border:1px solid var(--mark)}
 .about summary{
   list-style:none;cursor:pointer;font-size:.8rem;color:var(--muted);
   padding-bottom:3px;border-bottom:1px solid var(--line-2);
@@ -207,7 +279,7 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
   position:absolute;right:0;top:calc(100% + 10px);z-index:20;width:312px;
   padding:18px 19px;background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r);
-  box-shadow:0 1px 2px rgba(17,17,17,.04),0 12px 28px -18px rgba(17,17,17,.22);
+  box-shadow:var(--shadow);
   font-size:.79rem;line-height:1.65;color:var(--muted);
 }
 .about .body p{margin:0 0 10px}
@@ -236,15 +308,15 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
     -webkit-tap-highlight-color:transparent}
 .sq.d{background:var(--sq-dark)}
 .sq:focus{outline:none}
-.sq:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;z-index:6}
+.sq:focus-visible{outline:2px solid var(--mark);outline-offset:-3px;z-index:6}
 /* Last move is a memory cue, not an action target, so it sits below 3:1 by
    design -- but it must still be perceptible, hence two alphas. */
 .sq.last::after{content:'';position:absolute;inset:0;pointer-events:none;
-    background:rgba(17,17,17,.13)}
-.sq.d.last::after{background:rgba(17,17,17,.17)}
-.sq.sel{box-shadow:inset 0 0 0 3px var(--ink)}
+    background:var(--wash-last)}
+.sq.d.last::after{background:var(--wash-last-d)}
+.sq.sel{box-shadow:inset 0 0 0 3px var(--mark)}
 .sq.king::after{content:'';position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(circle,rgba(159,47,45,.9) 6%,rgba(159,47,45,.24) 40%,transparent 68%)}
+    background:radial-gradient(circle,var(--check) 6%,var(--check-soft) 40%,transparent 68%)}
 
 /* FLIP -- the board turns a half-revolution in its own plane. No depth, no
    perspective, no backface: just a rotation.
@@ -315,9 +387,9 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
    on the dark square -- effectively invisible. */
 .hint{position:absolute;left:50%;top:50%;width:26%;height:26%;z-index:3;
       transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
-      background:rgba(17,17,17,.60)}
+      background:var(--hint)}
 .hint.cap{width:84%;height:84%;background:none;box-sizing:border-box;
-          border:3px solid rgba(17,17,17,.60)}
+          border:3px solid var(--hint)}
 
 .coords{display:flex;font-family:var(--mono);font-size:.6rem;color:var(--faint);
         font-variant-numeric:tabular-nums}
@@ -335,11 +407,17 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
    colour, not from a list of three equal rows each trying to be read. */
 .verdict .lead-v{margin:0 0 15px;font-size:2.9rem;line-height:1;color:var(--ink);
                  letter-spacing:-.038em;font-weight:400}
+/* The bar measures DOMINANCE, not identity. Three stacked hues could not do
+   that accessibly: adjacent segments must clear 3:1, and muted green against
+   muted red measured 1.05:1 -- the same colour twice, and the worst possible
+   pair for colour-vision deficiency. Hue rotation is not a contrast axis.
+   So the bar is one ink segment over a track, and the three-way split lives
+   in the text line beneath it, where it is unambiguous. */
 .stack{position:relative;height:5px;border-radius:2px;overflow:hidden;
-       background:rgba(17,17,17,.07)}
+       background:var(--track)}
 .seg{position:absolute;left:0;top:0;bottom:0;width:100%;
-     transform-origin:left center;transition:transform 640ms var(--ease)}
-.seg-b{background:var(--seg-b)} .seg-d{background:var(--seg-d)} .seg-w{background:var(--seg-w)}
+     transform-origin:left center;background:var(--ink);
+     transition:transform 640ms var(--ease)}
 .rest{margin:0;font-size:.76rem;color:var(--faint);font-variant-numeric:tabular-nums}
 .rest b{font-weight:400;color:var(--muted)}
 .verdict .rest{margin-top:11px}
@@ -358,9 +436,9 @@ h1{margin:0;font-size:1.02rem;font-weight:500;color:var(--ink);letter-spacing:-.
 .sheetwrap{display:flex;flex-direction:column;min-height:0;flex:1}
 .sheetwrap h2{margin:0 0 10px;font-size:.72rem;font-weight:500;color:var(--faint)}
 #hist{flex:1;overflow-y:auto;overscroll-behavior:contain;min-height:64px;
-      scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+      scrollbar-width:thin;scrollbar-color:var(--scroll) transparent}
 #hist::-webkit-scrollbar{width:6px}
-#hist::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+#hist::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:3px}
 .sheet{width:100%;border-collapse:collapse;font-family:var(--mono);
        font-size:.79rem;font-variant-numeric:tabular-nums}
 .sheet th,.sheet td{text-align:left;font-weight:400;padding:4px 0;
@@ -386,13 +464,13 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;
      transition:transform 170ms var(--ease),background 200ms cubic-bezier(.4,0,.2,1),
                 color 200ms cubic-bezier(.4,0,.2,1)}
 .btn + .btn{border-left:1px solid var(--line)}
-.btn:hover:not([disabled]){background:var(--paper);color:var(--ink)}
+.btn:hover:not([disabled]){background:var(--wash);color:var(--ink)}
 .btn:active:not([disabled]){transform:scale(.97)}
 .btn:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
 /* Shortcuts rendered as physical keys rather than as loose grey text. */
 .kbd{display:block;width:fit-content;margin:5px auto 0;padding:0 5px;
-     border:1px solid var(--line);border-radius:4px;background:var(--paper);
-     font-family:var(--mono);font-size:.6rem;line-height:1.55;color:var(--faint)}
+     border:1px solid var(--line);border-radius:4px;background:var(--wash);
+     font-family:var(--mono);font-size:.6rem;line-height:1.55;color:var(--muted)}
 .btn[disabled]{opacity:.34;cursor:not-allowed}
 
 /* ---------- one quiet entrance, transform + opacity only ---------- */
@@ -407,6 +485,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;
   .stage{grid-template-columns:minmax(0,1fr);gap:36px;max-width:600px;margin:0 auto}
   .rail{max-width:600px;width:100%;margin:0 auto;gap:26px}
   .about .body{width:min(320px,calc(100vw - 64px))}
+  .masthead-r{gap:18px}
 }
 @media (max-width:560px){
   :root{--sq:min(10.6vw,52px)}
@@ -429,7 +508,19 @@ PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#F7F6F3">
+<meta name="theme-color" content="#F7F6F3" id="themecolor">
+<script>
+/* Resolve the theme BEFORE first paint. An inline script in <head> is the
+   only way to avoid a flash of the wrong theme -- waiting for the deferred
+   module at the end of <body> would show a white flash on every load. */
+(function(){
+  var saved = null;
+  try { saved = localStorage.getItem("theme"); } catch(e){}
+  var dark = saved ? saved === "dark"
+                   : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+})();
+</script>
 <meta name="description" content="Two-player chess with a machine-learning win-probability estimate after every move.">
 <title>Live chess outcome prediction</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -443,14 +534,19 @@ PAGE = r"""<!DOCTYPE html>
 
   <header class="masthead enter">
     <h1>Live chess outcome prediction</h1>
-    <details class="about">
-      <summary>About the model</summary>
-      <div class="body">
-        <dl id="stats"></dl>
-        <p id="foot"></p>
-        <p id="credit"></p>
-      </div>
-    </details>
+    <div class="masthead-r">
+      <button class="theme" id="btn-theme" type="button" aria-pressed="false">
+        <span class="theme-dot" aria-hidden="true"></span><span id="theme-l">Dark</span>
+      </button>
+      <details class="about">
+        <summary>About the model</summary>
+        <div class="body">
+          <dl id="stats"></dl>
+          <p id="foot"></p>
+          <p id="credit"></p>
+        </div>
+      </details>
+    </div>
   </header>
 
   <main class="stage">
@@ -463,6 +559,9 @@ PAGE = r"""<!DOCTYPE html>
             <div class="board" id="board" role="grid"
                  aria-label="Chess board, two players sharing one screen"></div>
           </div>
+        </div>
+        <p class="hintline">Select a piece, then a highlighted square</p>
+      </div>
       <p class="sr" id="announce" role="status" aria-live="polite"></p>
     </section>
 
@@ -470,11 +569,7 @@ PAGE = r"""<!DOCTYPE html>
       <div class="verdict">
         <p class="k" id="v-lead">Draw</p>
         <p class="lead-v mono" id="v-pct">&ndash;</p>
-        <div class="stack" aria-hidden="true">
-          <i class="seg seg-b" id="b-black"></i>
-          <i class="seg seg-d" id="b-draw"></i>
-          <i class="seg seg-w" id="b-white"></i>
-        </div>
+        <div class="stack" aria-hidden="true"><i class="seg" id="b-lead"></i></div>
         <p class="rest" id="v-rest"></p>
         <p class="sr" id="v-say" aria-live="polite" aria-atomic="true"></p>
       </div>
@@ -619,18 +714,15 @@ const LABEL = {black:"Black", draw:"Draw", white:"White"};
 
 function setProbs(p){
   const v = {black:p.black, draw:p.draw, white:p.white};
-  // A three-way probability is a composition, so draw it as ONE 100%-wide bar.
-  // transform-only animation keeps it on the compositor.
-  const bb = v.black;
-  const dd = bb + v.draw;
-  el("b-black").style.transform = "scaleX(" + bb + ")";
-  el("b-draw").style.transform  = "translateX(" + (bb*100) + "%) scaleX(" + v.draw + ")";
-  el("b-white").style.transform = "translateX(" + (dd*100) + "%) scaleX(" + v.white + ")";
+  // The bar is a dominance meter: one ink segment for the leading outcome,
+  // scaled to its probability, over the track for everything else. Keeping
+  // three hues here put muted green next to muted red at 1.05:1.
+  let lead = "draw";
+  for (const k of ROWS) if (v[k] > v[lead]) lead = k;
+  el("b-lead").style.transform = "scaleX(" + Math.max(v[lead], 0.004) + ")";
 
   // ONE number, not three rows. At 98.7% draw the other two are noise, and
   // giving them peer rows with swatches turned an answer into a form.
-  let lead = "draw";
-  for (const k of ROWS) if (v[k] > v[lead]) lead = k;
   el("v-lead").textContent = LABEL[lead];
   el("v-pct").textContent = (v[lead] * 100).toFixed(1) + "%";
 
@@ -656,6 +748,24 @@ function setProbs(p){
 }
 
 function say(m){ el("announce").textContent = m; }
+
+/* ---------- theme ----------
+   The attribute is flipped in JS, but the CSS reads it from <html>, so every
+   token inverts at once -- there is no second stylesheet to keep in sync and
+   no per-component dark rules. The <meta name="theme-color"> is updated too
+   so the browser chrome matches the page. */
+const THEME_COLOR = {light:"#F7F6F3", dark:"#14120F"};
+function applyTheme(next){
+  document.documentElement.dataset.theme = next;
+  el("btn-theme").setAttribute("aria-pressed", String(next === "dark"));
+  el("theme-l").textContent = next === "dark" ? "Light" : "Dark";
+  el("themecolor").setAttribute("content", THEME_COLOR[next]);
+  try { localStorage.setItem("theme", next); } catch(e){}
+}
+el("btn-theme").addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
+applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
 async function api(path, body){
   const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
@@ -838,6 +948,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault();
     if (!el("btn-undo").disabled) el("btn-undo").click();
   }
+  if (e.key === "d" || e.key === "D"){ e.preventDefault(); el("btn-theme").click(); }
 });
 
 async function loadMeta(){
