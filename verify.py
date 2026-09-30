@@ -1,10 +1,10 @@
-"""Capture report screenshots by driving real clicks in a real browser."""
+"""Full interaction test for the redesigned UI + fresh report screenshots."""
 from playwright.sync_api import sync_playwright
 
 
 def click(pg, square):
     pg.click(f'.sq[data-square="{square}"]')
-    pg.wait_for_timeout(380)
+    pg.wait_for_timeout(360)
 
 
 def play(pg, frm, to):
@@ -12,86 +12,120 @@ def play(pg, frm, to):
     click(pg, to)
 
 
-def readout(pg):
+def read(pg):
     return pg.evaluate(
         """() => ({
-            blk: document.getElementById('p-blk').textContent,
-            drw: document.getElementById('p-drw').textContent,
-            wht: document.getElementById('p-wht').textContent,
-            turn: document.getElementById('turn').textContent,
-            status: document.getElementById('status').textContent,
+            blk: document.getElementById('v-black').textContent,
+            drw: document.getElementById('v-draw').textContent,
+            wht: document.getElementById('v-white').textContent,
+            turn: document.getElementById('turntxt').textContent,
+            turnCls: document.getElementById('turn').className,
+            mat: document.getElementById('evalcp').textContent,
             hist: document.getElementById('hist').innerText.replace(/\\s+/g,' ').trim(),
-            sq: document.querySelectorAll('.sq').length,
-            pc: document.querySelectorAll('.pc').length
+            sel: document.querySelectorAll('.sq.sel').length,
+            hints: document.querySelectorAll('.hint').length,
+            last: document.querySelectorAll('.sq.last').length,
+            king: document.querySelectorAll('.sq.king').length,
+            ann: document.getElementById('announce').textContent,
+            undoDisabled: document.getElementById('btn-undo').disabled
         })"""
     )
 
 
-def line(pg):
-    return readout(pg)["hist"]
-
-
 with sync_playwright() as p:
     b = p.chromium.launch()
-    pg = b.new_page(viewport={"width": 1120, "height": 860})
-    errors = []
-    pg.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg = b.new_page(viewport={"width": 1180, "height": 880}, device_scale_factor=2)
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
 
     pg.goto("http://127.0.0.1:5000/", wait_until="networkidle")
     pg.evaluate("fetch('/new',{method:'POST'})")
-    pg.wait_for_timeout(500)
-    pg.evaluate("refresh()")
-    pg.wait_for_timeout(900)
+    pg.wait_for_timeout(400)
+    pg.reload(wait_until="networkidle")
+    pg.wait_for_timeout(1500)
 
-    s = readout(pg)
-    print(f"START  : {s['sq']} squares, {s['pc']} pieces | {s['turn']}")
-    print(f"         blk {s['blk']} / drw {s['drw']} / wht {s['wht']}")
-    pg.screenshot(path="shot_1_start.png", full_page=True)
+    s = read(pg)
+    print(f"START   turn='{s['turn']}' mat={s['mat']} "
+          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
+    pg.screenshot(path="shot_1_start.png")
 
-    # Scholar's mate -- all moves verified legal.
-    for frm, to in [("e2", "e4"), ("e7", "e5"),
-                    ("f1", "c4"), ("b8", "c6"),
+    # --- selection affordances ---
+    click(pg, "e2")
+    s = read(pg)
+    print(f"SELECT  sel={s['sel']} hintDots={s['hints']} announce='{s['ann']}'")
+    pg.screenshot(path="shot_2_selected.png")
+
+    # --- a real move, check the animation ran ---
+    click(pg, "e4")
+    s = read(pg)
+    print(f"MOVE    turn='{s['turn']}' last={s['last']} hist='{s['hist']}' "
+          f"undoEnabled={not s['undoDisabled']}")
+
+    # --- Scholar's mate: verify the full run ---
+    pg.evaluate("fetch('/new',{method:'POST'})")
+    pg.wait_for_timeout(350)
+    pg.reload(wait_until="networkidle")
+    pg.wait_for_timeout(1400)
+    for frm, to in [("e2", "e4"), ("e7", "e5"), ("f1", "c4"), ("b8", "c6"),
                     ("d1", "h5"), ("g8", "f6")]:
         play(pg, frm, to)
+    s = read(pg)
+    print(f"PRE-MATE {s['turn']} | blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
+    pg.screenshot(path="shot_3_midgame.png")
 
-    s = readout(pg)
-    print(f"6 plies : {s['turn']} | blk {s['blk']} / drw {s['drw']} / wht {s['wht']}")
-    print(f"         {s['hist']}")
-    pg.screenshot(path="shot_2_midgame.png", full_page=True)
-
-    # Scholar's mate: 4.Qxf7#. (Bxf7+ would be a bishop sacrifice -- the f7
-    # pawn is defended by the king -- so the model is right to rate it down.)
     play(pg, "h5", "f7")
-    s = readout(pg)
-    print(f"MATE    : status='{s['status']}'")
-    print(f"         blk {s['blk']} / drw {s['drw']} / wht {s['wht']}")
-    print(f"         {s['hist']}")
-    pg.screenshot(path="shot_3_checkmate.png", full_page=True)
+    s = read(pg)
+    print(f"MATE     turn='{s['turn']}' cls='{s['turnCls']}' "
+          f"blk {s['blk']}/drw {s['drw']}/wht {s['wht']}")
+    print(f"         hist='{s['hist']}'")
+    pg.screenshot(path="shot_4_checkmate.png")
 
-    # A clean material swing: win a queen, then keep playing (no mate).
-    # Legal's-mate opening up to Bxf7+ (verified legal), then decline the
-    # mate and carry on so the board is still live.
+    # --- undo restores ---
+    pg.click("#btn-undo")
+    pg.wait_for_timeout(900)
+    s = read(pg)
+    print(f"UNDO     turn='{s['turn']}' hist='{s['hist']}'")
+
+    # --- flip ---
+    pg.click("#btn-flip")
+    pg.wait_for_timeout(700)
+    order = pg.evaluate(
+        """() => Array.from(document.querySelectorAll('.sq')).slice(0,8)
+                   .map(d => d.dataset.square).join(' ')"""
+    )
+    print(f"FLIP     top row now: {order}")
+    pg.screenshot(path="shot_5_flipped.png")
+    pg.click("#btn-flip")
+    pg.wait_for_timeout(500)
+
+    # --- keyboard: roving arrow focus, then select + move without a mouse ---
     pg.evaluate("fetch('/new',{method:'POST'})")
-    pg.wait_for_timeout(400)
-    pg.evaluate("refresh()")
-    pg.wait_for_timeout(700)
-    for frm, to in [("e2", "e4"), ("e7", "e5"),
-                    ("g1", "f3"), ("d7", "d6"),
-                    ("f1", "c4"), ("c8", "g4"),
-                    ("b1", "c3"), ("g7", "g6"),
-                    ("c3", "e5"), ("f8", "d6")]:
-        play(pg, frm, to)
-    s = readout(pg)
-    print(f"SWING   : {s['turn']} | blk {s['blk']} / drw {s['drw']} / wht {s['wht']}  <- after Bxd1")
-    print(f"         {s['hist']}")
-    pg.screenshot(path="shot_4_material_swing.png", full_page=True)
+    pg.wait_for_timeout(350)
+    pg.reload(wait_until="networkidle")
+    pg.wait_for_timeout(1400)
+    pg.locator('.sq[data-square="e2"]').focus()
+    pg.keyboard.press("Enter")          # select the e2 pawn
+    pg.wait_for_timeout(500)
+    focus_after_select = pg.evaluate("() => document.activeElement.dataset.square")
+    # DOM row for rank 2 is 6, so ArrowUp (row-1) lands on rank 3 => e3
+    pg.keyboard.press("ArrowUp")
+    pg.wait_for_timeout(250)
+    focus_target = pg.evaluate("() => document.activeElement.dataset.square")
+    pg.keyboard.press("Enter")          # confirm the move
+    pg.wait_for_timeout(800)
+    s = read(pg)
+    print(f"KEYBOARD focus after select={focus_after_select} -> arrow to {focus_target}"
+          f" | hist='{s['hist']}' turn='{s['turn']}'")
 
-    # flipped board view
-    pg.click("text=Flip")
-    pg.wait_for_timeout(700)
-    pg.screenshot(path="shot_5_flipped.png", full_page=True)
-    print("FLIP    : ok")
+    # --- focus ring visible ---
+    pg.locator('.sq[data-square="d2"]').focus()
+    pg.wait_for_timeout(200)
+    ring = pg.evaluate(
+        """() => { const s = getComputedStyle(document.activeElement, null);
+                    return s.outlineWidth + ' ' + s.outlineStyle; }"""
+    )
+    print(f"FOCUS    outline on active square: {ring}")
 
-    print(f"ERRORS  : {errors if errors else 'none'}")
+    print(f"\nERRORS: {errs if errs else 'none'}")
     b.close()

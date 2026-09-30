@@ -312,6 +312,52 @@ and rendered a blank page when the CDN was unreachable).
 **Move validation** is delegated entirely to `python-chess`, so illegal moves are rejected
 by the engine rather than by bespoke logic.
 
+### 7.2 Interface
+
+The front-end is a single self-contained HTML document — no framework, no build step, and
+**no runtime CDN dependency**. That last point was learned the hard way: the first
+version loaded `chessboard.js` and `chess.js` from a CDN, and whenever that CDN was
+unreachable the page rendered completely blank. Everything the board needs is now
+inlined.
+
+**Piece artwork** is the standard Wikipedia set by Cburnett (CC BY-SA 3.0), fetched as
+80x80 PNGs and traced to SVG paths by `build_pieces.py` (contour trace + Douglas-Peucker
+simplification, 7.1 KB for all twelve pieces). Vectors rather than the source rasters
+because the 80px originals go visibly soft on any high-DPI screen, and vectors remove the
+last external fetch.
+
+| Concern | Implementation |
+|---|---|
+| Board | CSS grid of 64 persistent square buttons, built once and only ever mutated |
+| Move animation | Ghost piece measured at origin, translated to destination, removed |
+| Coordinates | Outside the playing area, per chess convention |
+| Legal moves | Centred dot; ring when the target holds a capture |
+| Check | Radial highlight on the king actually in check |
+| Prediction | Three meters + a material readout in pawns |
+| Result | Turn strip recolours by the winner (green / red / slate) |
+| Palette | One accent (gold) plus three semantic outcome colours |
+
+The 64 squares are created once and mutated in place rather than re-rendered. That is
+what makes the move animation possible at all, and it also keeps focus stable for
+keyboard users mid-game.
+
+**Accessibility and performance:**
+
+- Every square is a real `<button>` with a descriptive `aria-label` ("White pawn on e2"),
+  so the board is navigable by screen reader and playable without a mouse: arrow keys
+  move focus, Enter selects and confirms.
+- `role="status"` / `role="log"` with `aria-live="polite"` announce selections, moves and
+  the result; the evaluation meters are a single atomic live region so the three
+  percentages are not announced as three separate interruptions.
+- Full keyboard operation, visible `:focus-visible` rings, and pointer/selection state
+  that is never colour-only.
+- Every transition animates only `transform` and `opacity`; all easings are custom
+  `cubic-bezier` curves, never `linear` or `ease-in-out`.
+- `prefers-reduced-motion` collapses all animation, and `prefers-reduced-transparency`
+  flattens the glass panels.
+- Verified at 1440 / 1024 / 768 / 390 px with no horizontal scroll; the board scales
+  from 62 px to 41 px squares and the layout drops to a single column below 1000 px.
+
 ### 7.1 Screenshots
 
 **Start position** — the model correctly reports a near-certain draw, since the opening
@@ -397,6 +443,8 @@ python sanity_check.py     # runs the correctness checks in Section 6
 |---|---|
 | `train_model.py` | Feature extraction, oracle, dataset generation, training, sanity checks |
 | `app.py` | Flask server + single-page front-end |
+| `build_pieces.py` | Fetches the Cburnett piece PNGs and traces them to SVG paths |
+| `pieces.py` | Generated piece geometry (committed; regenerate with `build_pieces.py`) |
 | `make_figures.py` | All report figures |
 | `build_report.py` | Renders this report to `report.html` / `report.pdf` |
 | `sanity_check.py` | Independent verification (symmetry, monotonicity, terminal, real game) |
@@ -404,3 +452,5 @@ python sanity_check.py     # runs the correctness checks in Section 6
 | `positions_dataset.csv` | The generated training set |
 | `training_report.txt` | Full captured training log |
 | `model.pkl`, `scaler.pkl` | Trained model and feature scaler |
+
+Piece artwork: Wikipedia chess pieces by Cburnett, CC BY-SA 3.0.
